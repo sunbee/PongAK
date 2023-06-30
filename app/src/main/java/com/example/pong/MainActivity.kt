@@ -13,7 +13,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -30,8 +32,12 @@ import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -60,21 +66,13 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
 @Composable
 fun GameScreen() {
     val TAG: String = "GAME SCREEN"
-    var score = remember {
-        mutableStateOf(0f)
-    }
-    var touchXY = remember {
-        mutableStateOf(Offset(0f, 0f))
-    }
-    val paddleY = remember {
-        mutableStateOf(0f)
-    }
-    val paddleX = remember {
-        0f
-    }
-    val deltaY = remember {
-        mutableStateOf(0f)
-    }
+    val density = LocalDensity.current
+    var score = remember { mutableStateOf(0f) }
+    var touchXY = remember { mutableStateOf(Offset(0f, 0f)) }
+    val deltaY = remember { mutableStateOf(0f) }
+    val paddleColor = remember { mutableStateOf(Color.Cyan) }
+    val paddleTopLeft = remember { mutableStateOf(Offset(10f, 10f)) }
+    var paddleSize = remember { mutableStateOf(Size(100f, 50f)) }
 
     Column(modifier = Modifier
         .fillMaxSize()) {
@@ -91,42 +89,41 @@ fun GameScreen() {
             }
             Spacer(modifier = Modifier.weight(1f))
             Text(text = "Score: ${score.value}")
-        }
+        } // end ROW
         Box(modifier = Modifier
             .fillMaxSize()
+            .onGloballyPositioned {
+                paddleSize.value = Size(0.03f * it.size.width / density.density, 0.45f * it.size.height / density.density)
+            }
             .background(Color.Blue)
             .pointerInput(Unit) {
                 detectDragGestures { change, dragAmount ->
                     // Update paddle
-                    Log.d(TAG, "Change amount ${dragAmount.y}")
+                    Log.d(TAG, "Position ${change.position.x / density.density} Pad @ at ${paddleTopLeft.value.x}, ${paddleSize.value.width}")
                     deltaY.value = dragAmount.y.toFloat()
-                    touchXY.value = change.position
+                    touchXY.value = change.position / density.density
                 }
-            }) {
-            Canvas(modifier = Modifier
-                .fillMaxSize(),
-            ) {
-                val canvasWidth = size.width.toFloat()
-                val canvasHeight = size.height.toFloat()
-
-                val paddleWidth = 0.03 * canvasWidth
-                val paddleHeight = 0.45 * canvasHeight
-
-                if (touchXY.value.x in (paddleX..paddleX+paddleWidth.toFloat()) &&
-                        touchXY.value.y in paddleY.value..(paddleY.value + paddleHeight.toFloat())) {
-                            Log.d(TAG, "YOU TOUCHED ME!")
-                            drawRect(
-                                Color.Cyan,
-                                topLeft = Offset(10f, paddleY.value),
-                                size = Size(paddleWidth.toFloat(), paddleHeight.toFloat()))
-                                paddleY.value += deltaY.value
-                                deltaY.value = 0f
-                } // end IF
-                drawRect(Color.Cyan, topLeft = Offset(10f, paddleY.value), size = Size(paddleWidth.toFloat(), paddleHeight.toFloat()))
-            } // end CANVAS
+            }
+        ) {
+            Paddle(color = paddleColor.value, topLeft = paddleTopLeft.value, size = paddleSize.value)
+            if (touchXY.value.x in (paddleTopLeft.value.x..paddleTopLeft.value.x + paddleSize.value.width) &&
+                touchXY.value.y in paddleTopLeft.value.y..(paddleTopLeft.value.y + paddleSize.value.height)) {
+                Log.d(TAG, "YOU TOUCHED ME!")
+                paddleTopLeft.value = Offset(paddleTopLeft.value.x, paddleTopLeft.value.y + deltaY.value / density.density)
+                deltaY.value = 0f
+            } // end IF
         } // end BOX
     } // End Column
+}
 
+@Composable
+fun Paddle(color: Color, topLeft: Offset, size: Size) {
+    Box(
+        modifier = Modifier
+            .offset(topLeft.x.dp, topLeft.y.dp)
+            .size(size.width.dp, size.height.dp)
+            .background(color)
+    )
 }
 
 @Preview(showBackground = true, device = Devices.AUTOMOTIVE_1024p, widthDp = 720, heightDp = 360)
@@ -137,3 +134,4 @@ fun GreetingPreview() {
         GameScreen()
     }
 }
+
