@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.tooling.preview.Devices
@@ -62,7 +63,8 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
 fun GameScreen() {
     val TAG: String = "GAME SCREEN"
     var score = remember { mutableStateOf(0f) }
-    val rectXY = remember { mutableStateOf(Offset(0f, 0f)) }
+    val rectXYL = remember { mutableStateOf(Offset(0f, 0f)) }
+    val rectXYR = remember { mutableStateOf(Offset(0f, 0f)) }
     var touchXY = remember { mutableStateOf(Offset(0f, 0f)) }
     val deltaY = remember { mutableStateOf(0f) }
 
@@ -93,7 +95,7 @@ fun GameScreen() {
                     touchXY.value = change.position
                 }
             }) {
-            GameCanvas(rectXY = rectXY, touchXY = touchXY, deltaY = deltaY)
+            GameCanvas(rectXYL = rectXYL, rectXYR = rectXYR, touchXY = touchXY, deltaY = deltaY)
         } // end BOX
     } // End Column
 
@@ -110,7 +112,8 @@ fun GreetingPreview() {
 
 @Composable
 fun GameCanvas(
-    rectXY: MutableState<Offset>,
+    rectXYL: MutableState<Offset>,
+    rectXYR: MutableState<Offset>,
     touchXY: MutableState<Offset>,
     deltaY: MutableState<Float>
 ) {
@@ -125,15 +128,26 @@ fun GameCanvas(
         val paddleWidth = 0.03f * canvasWidth
         val paddleHeight = 0.45f * canvasHeight
 
-        if (touchXY.value.x in (rectXY.value.x..rectXY.value.x+paddleWidth) &&
-            touchXY.value.y in rectXY.value.y..(rectXY.value.y+paddleHeight)) {
+        rectXYL.value = Offset(0.01f*canvasWidth, rectXYL.value.y)
+        rectXYR.value = Offset((canvasWidth - 0.01f*canvasWidth - paddleWidth), rectXYR.value.y)
+
+        if (touchXY.value.x in (rectXYL.value.x..rectXYL.value.x+paddleWidth) &&
+            touchXY.value.y in rectXYL.value.y..(rectXYL.value.y+paddleHeight)) {
             Log.d(TAG, "YOU TOUCHED ME!")
-            rectXY.value = Offset(rectXY.value.x, rectXY.value.y+deltaY.value)
+            val newY = (rectXYL.value.y + deltaY.value).coerceIn(0f, canvasHeight-paddleHeight)
+            rectXYL.value = Offset(rectXYL.value.x, newY)
             deltaY.value = 0f // So paddle stops when drag is paused
         } // end IF
         drawRect(
             Color.Green,
-            topLeft = rectXY.value,
+            topLeft = rectXYL.value,
             size = Size(paddleWidth, paddleHeight))
+        drawRect(
+            Color.Green,
+            topLeft = rectXYR.value,
+            size = Size(paddleWidth, paddleHeight))
+
+
     } // end CANVAS
 }
+
