@@ -142,6 +142,13 @@ fun GameCanvas(
             Color.Green,
             topLeft = rectXYL.value,
             size = Size(paddleWidth, paddleHeight))
+        if (touchXY.value.x in (rectXYR.value.x..rectXYR.value.x+paddleWidth) &&
+            touchXY.value.y in rectXYR.value.y..(rectXYR.value.y+paddleHeight)) {
+            Log.d(TAG, "YOU TOUCHED ME!")
+            val newY = (rectXYR.value.y + deltaY.value).coerceIn(0f, canvasHeight-paddleHeight)
+            rectXYR.value = Offset(rectXYR.value.x, newY)
+            deltaY.value = 0f // So paddle stops when drag is paused
+        } // end IF
         drawRect(
             Color.Green,
             topLeft = rectXYR.value,
