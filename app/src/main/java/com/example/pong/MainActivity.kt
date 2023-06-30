@@ -19,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -60,21 +61,10 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
 @Composable
 fun GameScreen() {
     val TAG: String = "GAME SCREEN"
-    var score = remember {
-        mutableStateOf(0f)
-    }
-    var touchXY = remember {
-        mutableStateOf(Offset(0f, 0f))
-    }
-    val paddleY = remember {
-        mutableStateOf(0f)
-    }
-    val paddleX = remember {
-        0f
-    }
-    val deltaY = remember {
-        mutableStateOf(0f)
-    }
+    var score = remember { mutableStateOf(0f) }
+    val rectXY = remember { mutableStateOf(Offset(0f, 0f)) }
+    var touchXY = remember { mutableStateOf(Offset(0f, 0f)) }
+    val deltaY = remember { mutableStateOf(0f) }
 
     Column(modifier = Modifier
         .fillMaxSize()) {
@@ -103,27 +93,7 @@ fun GameScreen() {
                     touchXY.value = change.position
                 }
             }) {
-            Canvas(modifier = Modifier
-                .fillMaxSize(),
-            ) {
-                val canvasWidth = size.width.toFloat()
-                val canvasHeight = size.height.toFloat()
-
-                val paddleWidth = 0.03 * canvasWidth
-                val paddleHeight = 0.45 * canvasHeight
-
-                if (touchXY.value.x in (paddleX..paddleX+paddleWidth.toFloat()) &&
-                        touchXY.value.y in paddleY.value..(paddleY.value + paddleHeight.toFloat())) {
-                            Log.d(TAG, "YOU TOUCHED ME!")
-                            drawRect(
-                                Color.Cyan,
-                                topLeft = Offset(10f, paddleY.value),
-                                size = Size(paddleWidth.toFloat(), paddleHeight.toFloat()))
-                                paddleY.value += deltaY.value
-                                deltaY.value = 0f
-                } // end IF
-                drawRect(Color.Cyan, topLeft = Offset(10f, paddleY.value), size = Size(paddleWidth.toFloat(), paddleHeight.toFloat()))
-            } // end CANVAS
+            GameCanvas(rectXY = rectXY, touchXY = touchXY, deltaY = deltaY)
         } // end BOX
     } // End Column
 
@@ -136,4 +106,34 @@ fun GreetingPreview() {
         //Greeting("Android")
         GameScreen()
     }
+}
+
+@Composable
+fun GameCanvas(
+    rectXY: MutableState<Offset>,
+    touchXY: MutableState<Offset>,
+    deltaY: MutableState<Float>
+) {
+    Canvas(
+        modifier = Modifier
+            .fillMaxSize(),
+    ) {
+        val TAG = "GAME CANVAS"
+        val canvasWidth = size.width.toFloat()
+        val canvasHeight = size.height.toFloat()
+
+        val paddleWidth = 0.03f * canvasWidth
+        val paddleHeight = 0.45f * canvasHeight
+
+        if (touchXY.value.x in (rectXY.value.x..rectXY.value.x+paddleWidth) &&
+            touchXY.value.y in rectXY.value.y..(rectXY.value.y+paddleHeight)) {
+            Log.d(TAG, "YOU TOUCHED ME!")
+            rectXY.value = Offset(rectXY.value.x, rectXY.value.y+deltaY.value)
+            deltaY.value = 0f // So paddle stops when drag is paused
+        } // end IF
+        drawRect(
+            Color.Green,
+            topLeft = rectXY.value,
+            size = Size(paddleWidth, paddleHeight))
+    } // end CANVAS
 }
