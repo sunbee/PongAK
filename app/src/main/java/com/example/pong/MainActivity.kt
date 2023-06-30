@@ -72,6 +72,9 @@ fun GameScreen() {
     val paddleX = remember {
         0f
     }
+    val deltaY = remember {
+        mutableStateOf(0f)
+    }
 
     Column(modifier = Modifier
         .fillMaxSize()) {
@@ -93,14 +96,11 @@ fun GameScreen() {
             .fillMaxSize()
             .background(Color.Blue)
             .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = {
-                        touchXY.value = it
-                    }
-                ) { change, dragAmount ->
+                detectDragGestures { change, dragAmount ->
                     // Update paddle
                     Log.d(TAG, "Change amount ${dragAmount.y}")
-                    paddleY.value += dragAmount.y.toFloat()
+                    deltaY.value = dragAmount.y.toFloat()
+                    touchXY.value = change.position
                 }
             }) {
             Canvas(modifier = Modifier
@@ -119,11 +119,12 @@ fun GameScreen() {
                                 Color.Cyan,
                                 topLeft = Offset(10f, paddleY.value),
                                 size = Size(paddleWidth.toFloat(), paddleHeight.toFloat()))
-                        } // end IF
+                                paddleY.value += deltaY.value
+                                deltaY.value = 0f
+                } // end IF
                 drawRect(Color.Cyan, topLeft = Offset(10f, paddleY.value), size = Size(paddleWidth.toFloat(), paddleHeight.toFloat()))
-            }
-        }
-
+            } // end CANVAS
+        } // end BOX
     } // End Column
 
 }
