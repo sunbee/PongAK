@@ -22,7 +22,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.neverEqualPolicy
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -34,7 +33,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import com.example.pong.ui.theme.PongTheme
 import kotlinx.coroutines.delay
@@ -52,49 +50,18 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
 @Composable
 fun GameScreen() {
-    val TAG: String = "GAME SCREEN"
-    var score = remember { mutableStateOf(0f) }
+    val TAG = "GAME SCREEN"
+    val score = remember { mutableStateOf(0f) }
     val rectXYL = remember { mutableStateOf(Offset(0f, 0f)) }
     val rectXYR = remember { mutableStateOf(Offset(0f, 0f)) }
-    var touchXY = remember { mutableStateOf(Offset(0f, 0f)) }
+    val touchXY = remember { mutableStateOf(Offset(0f, 0f)) }
     val deltaY = remember { mutableStateOf(0f) }
     val ballXY =  remember { mutableStateOf(Offset(150f, 50f)) }
-    val ballVelocity = remember { mutableStateOf(Offset(30f, 1f)) }
+    val ballVelocity = remember { mutableStateOf(Offset(90f, 15f)) }
     val ballRadius = 45f
-    val ball = remember {
-        mutableStateOf(Ball(
-            radius = 30f,
-            position = Offset(15f, 15f),
-            velocity = Offset(30f, 15f)
-        ), policy = neverEqualPolicy()
-        )
-    }
-
-    LaunchedEffect(ballXY) {
-        while (true) {
-            withFrameNanos { frameTime ->
-                // Update ball position
-                ballXY.value += ballVelocity.value
-                /* FAILED TO USE CLASS BALL! RECOMPOSED NO CANVAS
-                ball.value.updatePosition()
-                ball.value.position = Offset(ball.value.position.x+10, ball.value.position.y)
-                rectXYR.value= Offset(rectXYR.value.x, rectXYR.value.y+ 15f) // Force recompose
-                */
-            }
-            delay(100L)
-        }
-    }
+    val isAnimationRunning = remember { mutableStateOf(true) }
 
     Column(modifier = Modifier
         .fillMaxSize()) {
@@ -103,10 +70,10 @@ fun GameScreen() {
             .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Button(onClick = { /*TODO*/ }) {
+            Button(onClick = { isAnimationRunning.value = true }) {
                 Text("START")
             }
-            Button(onClick = { /*TODO*/ }) {
+            Button(onClick = { isAnimationRunning.value = false }) {
                 Text("QUIT")
             }
             Spacer(modifier = Modifier.weight(1f))
@@ -119,7 +86,7 @@ fun GameScreen() {
                 detectDragGestures { change, dragAmount ->
                     // Update paddle
                     Log.d(TAG, "Change amount ${dragAmount.y}")
-                    deltaY.value = dragAmount.y.toFloat()
+                    deltaY.value = dragAmount.y
                     touchXY.value = change.position
                 }
             }) {
@@ -130,7 +97,8 @@ fun GameScreen() {
                 deltaY = deltaY,
                 ballXY = ballXY,
                 ballVelocity = ballVelocity,
-                ballRadius = ballRadius
+                ballRadius = ballRadius,
+                isAnimationRunning = isAnimationRunning
             )
         } // end BOX
     } // End Column
@@ -154,15 +122,35 @@ fun GameCanvas(
     deltaY: MutableState<Float>,
     ballXY: MutableState<Offset>,
     ballVelocity: MutableState<Offset>,
-    ballRadius: Float
+    ballRadius: Float,
+    isAnimationRunning: MutableState<Boolean>
 ) {
+    LaunchedEffect(Unit) {
+        while (true) {
+            if (isAnimationRunning.value) {
+                withFrameNanos { frameTime ->
+                    // Update ball position
+                    ballXY.value += ballVelocity.value
+                } // end withFrameNanos
+            } // end IF ANIMATING
+            delay(100L)
+        } // end WHILE FOREVER
+    }
+
     Canvas(
         modifier = Modifier
             .fillMaxSize(),
     ) {
+
+        /*
+        * Effectively a Game Loop in Jetpack Compose.
+        * The Canvas manages the paddles and their interaction with ball.
+        *
+        * */
+        // Setup params for drawing in relation to canvas dimensions
         val TAG = "GAME CANVAS"
-        val canvasWidth = size.width.toFloat()
-        val canvasHeight = size.height.toFloat()
+        val canvasWidth = size.width
+        val canvasHeight = size.height
 
         val paddleWidth = 0.03f * canvasWidth
         val paddleHeight = 0.45f * canvasHeight
@@ -170,6 +158,7 @@ fun GameCanvas(
         rectXYL.value = Offset(0.01f*canvasWidth, rectXYL.value.y)
         rectXYR.value = Offset((canvasWidth - 0.01f*canvasWidth - paddleWidth), rectXYR.value.y)
 
+        // Check if paddle touched, knowing paddle location and dimensions
         if (touchXY.value.x in (rectXYL.value.x..rectXYL.value.x+paddleWidth) &&
             touchXY.value.y in rectXYL.value.y..(rectXYL.value.y+paddleHeight)) {
             Log.d(TAG, "YOU TOUCHED ME!")
@@ -185,7 +174,7 @@ fun GameCanvas(
             deltaY.value = 0f // So paddle stops when drag is paused
         } // end IF
 
-        // Handle collisions
+        // Handle collisions of ball with paddles, edges
         val ballBounds = Rect(
             (ballXY.value.x - ballRadius),
             (ballXY.value.y - ballRadius),
@@ -204,9 +193,13 @@ fun GameCanvas(
             ballVelocity.value = Offset(ballVelocity.value.x * -1f, ballVelocity.value.y)
             Log.d(TAG, "BALL TOUCHED ME! Velocity: ${ballVelocity.value.x}")
         }
+        if (ballXY.value.y - ballRadius <= 0f || ballXY.value.y + ballRadius >= canvasHeight) {
+            ballVelocity.value = Offset(ballVelocity.value.x, ballVelocity.value.y * -1f)
+        }
 
         // Check game over condition
 
+        // Render paddles and ball
         drawRect(
             Color.Green,
             topLeft = rectXYL.value,
@@ -221,25 +214,4 @@ fun GameCanvas(
             radius = ballRadius
         )
     } // end CANVAS
-}
-
-data class Ball( // UNUSABLE
-    var position: Offset,
-    val radius: Float,
-    var velocity: Offset
-) {
-    fun updatePosition() {
-        position += velocity
-    }
-
-    fun bounceOffPaddle() {
-        velocity = Offset(velocity.x * -1f, velocity.y * -1f)
-    }
-
-    fun bounceOffCanvasEdges(canvasSize: Size) {
-        if ((position.x - radius < 0f || position.x + radius > canvasSize.width) ||
-                (position.y - radius < 0f)) {
-            velocity = Offset(velocity.x * 1f, velocity.y * -1f)
-        }
-    }
 }
