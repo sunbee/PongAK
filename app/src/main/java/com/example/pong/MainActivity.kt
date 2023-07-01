@@ -126,7 +126,13 @@ fun GameCanvas(
     isAnimationRunning: MutableState<Boolean>
 ) {
     LaunchedEffect(Unit) {
-        while (true) {
+        /*
+        * Animate the ball. The ball is rendered on canvas as a circle.
+        * The ball's coordinates are updated in a forever loop in this coroutine
+        * based on the velocity. This triggers recomposition of the canvas,
+        * thus animating the ball.
+        * */
+            while (true) {
             if (isAnimationRunning.value) {
                 withFrameNanos { frameTime ->
                     // Update ball position
@@ -145,7 +151,7 @@ fun GameCanvas(
         /*
         * Effectively a Game Loop in Jetpack Compose.
         * The Canvas manages the paddles and their interaction with ball.
-        *
+        * The ball's animation is controlled by the LaunchedEffects coroutine.
         * */
         // Setup params for drawing in relation to canvas dimensions
         val TAG = "GAME CANVAS"
