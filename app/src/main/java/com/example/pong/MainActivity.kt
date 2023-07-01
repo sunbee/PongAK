@@ -107,7 +107,7 @@ fun GameScreen() {
 
 @Preview(showBackground = true, device = Devices.AUTOMOTIVE_1024p, widthDp = 720, heightDp = 360)
 @Composable
-fun GreetingPreview() {
+fun GamePreview() {
     PongTheme {
         //Greeting("Android")
         GameScreen()
@@ -149,9 +149,15 @@ fun GameCanvas(
     ) {
 
         /*
-        * Effectively a Game Loop in Jetpack Compose.
-        * The Canvas manages the paddles and their interaction with ball.
-        * The ball's animation is controlled by the LaunchedEffects coroutine.
+        * This is effectively the Game Loop in Jetpack Compose.
+        * There is no forever loop here, so what makes it a Game Loop?
+        * The answer lies in the LaunchedEffecrs coroutine,
+        * where the ball's xy coordinates are continuously updated.
+        * Since the xy coordinates are a state variable and determine
+        * the composition, the canvas is recomposed with each update.
+        * Thus making this canvas code part of a Game Loop.
+        * Here, we manage the paddles and their interaction with ball.
+        *
         * */
         // Setup params for drawing in relation to canvas dimensions
         val TAG = "GAME CANVAS"
@@ -215,7 +221,7 @@ fun GameCanvas(
             topLeft = rectXYR.value,
             size = Size(paddleWidth, paddleHeight))
         drawCircle(
-            color = Color.Red,
+            color = Color.Cyan,
             center = ballXY.value,
             radius = ballRadius
         )
