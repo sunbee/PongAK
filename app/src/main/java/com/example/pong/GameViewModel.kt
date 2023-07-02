@@ -127,6 +127,7 @@ class GameViewModel : ViewModel() {
 
     fun stopAnimation() {
         _isAnimationRunning.value = false
+        resetGame()
     }
 
     private fun updateBallPosition() {
@@ -237,6 +238,7 @@ class GameViewModel : ViewModel() {
         _score.value = 0
         _rectXYL.value = Offset.Zero
         _rectXYR.value = Offset.Zero
+        _ballXY.value = Offset(150f, 50f)
         _isAnimationRunning.value = false
     }
 }
