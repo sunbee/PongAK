@@ -1,13 +1,17 @@
 package com.example.pong
+import android.util.Log
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class GameViewModel : ViewModel() {
+    val TAG = "GAME VIEWMODEL"
     private val _score = mutableStateOf(0f)
     val score: State<Float> = _score
     fun setScore(score: Float) {
@@ -44,7 +48,7 @@ class GameViewModel : ViewModel() {
         _ballXY.value = ui_XY
     }
 
-    private val _ballVelocity = mutableStateOf(Offset(90f, 15f))
+    private val _ballVelocity = mutableStateOf(Offset(45f, 10f))
     val ballVelocity: State<Offset> = _ballVelocity
     fun setBallVelocity(ui_velocity: Offset) {
         _ballVelocity.value = ui_velocity
@@ -64,7 +68,7 @@ class GameViewModel : ViewModel() {
         viewModelScope.launch {
             while (_isAnimationRunning.value) {
                 updateBallPosition()
-                delay(100L) // Delay for 100 milliseconds
+                delay(100L)
             }
         }
     }
@@ -75,5 +79,85 @@ class GameViewModel : ViewModel() {
 
     private fun updateBallPosition() {
         _ballXY.value += _ballVelocity.value
+    }
+
+    fun dragPaddleL(paddleSize: Size, canvasSize: Size) {
+        if (touchXY.value.x in (rectXYL.value.x..rectXYL.value.x+paddleSize.width) &&
+            touchXY.value.y in (rectXYL.value.y..rectXYL.value.y+paddleSize.height)) {
+            Log.d(TAG, "LEFT PADDLE TOUCHED!")
+            val newY = (rectXYL.value.y + deltaY.value).coerceIn(0f, canvasSize.height-paddleSize.height)
+            setRectXYL( Offset(rectXYL.value.x, newY) )
+            setDeltaY(0f)
+        } // end IF
+    }
+
+    fun dragPaddleR(paddleSize: Size, canvasSize: Size) {
+        if (touchXY.value.x in (rectXYR.value.x..rectXYR.value.x+paddleSize.width) &&
+            touchXY.value.y in (rectXYR.value.y..rectXYR.value.y+paddleSize.height)) {
+            Log.d(TAG, "RIGHT PADDLE TOUCHED!")
+            val newY = (rectXYR.value.y + deltaY.value).coerceIn(0f, canvasSize.height-paddleSize.height)
+            setRectXYR( Offset(rectXYR.value.x, newY) )
+            setDeltaY(0f) // So paddle stops when drag is paused
+        } // end IF
+    }
+
+    fun checkBallHitsPaddle(paddleSize: Size) {
+        val ballBounds = Rect(
+            (ballXY.value.x - ballRadius.value),
+            (ballXY.value.y - ballRadius.value),
+            (ballXY.value.x + ballRadius.value),
+            (ballXY.value.y + ballRadius.value)
+        )
+        val paddleBoundsL = Rect(
+            offset = rectXYL.value,
+            size = paddleSize
+        )
+        val paddleBoundsR = Rect(
+            offset = rectXYR.value,
+            size = paddleSize
+        )
+        if (ballBounds.overlaps(paddleBoundsL))  {
+            flipBallHeading(Direction.RIGHT)
+            Log.d(TAG, "BALL TOUCHED ME! Velocity: ${ballVelocity.value.x}")
+        } else if (ballBounds.overlaps(paddleBoundsR)) {
+            flipBallHeading(Direction.LEFT)
+            Log.d(TAG, "BALL TOUCHED ME! Velocity: ${ballVelocity.value.x}")
+        }
+    }
+
+    enum class Direction {
+        UP, DOWN, LEFT, RIGHT
+    }
+
+    fun flipBallHeading(direction: Direction) {
+        _ballVelocity.value = when (direction) {
+            Direction.UP -> Offset(ballVelocity.value.x,  if (ballVelocity.value.y < 0) ballVelocity.value.y else -ballVelocity.value.y)
+            Direction.DOWN -> Offset(ballVelocity.value.x, if (ballVelocity.value.y > 0) ballVelocity.value.y else -ballVelocity.value.y)
+            Direction.LEFT -> Offset(if (ballVelocity.value.x < 0) ballVelocity.value.x else -ballVelocity.value.x, ballVelocity.value.y)
+            Direction.RIGHT -> Offset(if (ballVelocity.value.x > 0) ballVelocity.value.x else -ballVelocity.value.x, -ballVelocity.value.y)
+        }
+    }
+
+    enum class Edge {
+        LEFT, RIGHT, TOP, BOTTOM
+    }
+
+    fun handleBallHitsEdge(canvasSize: Size) {
+
+        val edge: Edge
+
+        if (ballXY.value.y - ballRadius.value <= 0f) {
+            edge = Edge.TOP
+            flipBallHeading(Direction.DOWN)
+        } else if (ballXY.value.x + ballRadius.value >= canvasSize.width) {
+            edge = Edge.RIGHT
+            setIsAnimationRunning(false)
+        } else if (ballXY.value.y + ballRadius.value >= canvasSize.height) {
+            edge = Edge.BOTTOM
+            flipBallHeading(Direction.UP)
+        } else if (ballXY.value.x - ballRadius.value <= 0f) {
+            edge = Edge.LEFT
+            setIsAnimationRunning(false)
+        }
     }
 }
