@@ -36,6 +36,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.pong.ui.theme.PongTheme
 import kotlinx.coroutines.delay
+import androidx.lifecycle.viewmodel.compose.viewModel
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,24 +46,18 @@ class MainActivity : ComponentActivity() {
         setContent {
             PongTheme {
                 // A surface container using the 'background' color from the theme
-                GameScreen()
+                val gameViewModel: GameViewModel = viewModel()
+
+                GameScreen(gameViewModel = gameViewModel)
             }
         }
     }
 }
 
 @Composable
-fun GameScreen() {
+fun GameScreen(gameViewModel: GameViewModel) {
+
     val TAG = "GAME SCREEN"
-    val score = remember { mutableStateOf(0f) }
-    val rectXYL = remember { mutableStateOf(Offset(0f, 0f)) }
-    val rectXYR = remember { mutableStateOf(Offset(0f, 0f)) }
-    val touchXY = remember { mutableStateOf(Offset(0f, 0f)) }
-    val deltaY = remember { mutableStateOf(0f) }
-    val ballXY =  remember { mutableStateOf(Offset(150f, 50f)) }
-    val ballVelocity = remember { mutableStateOf(Offset(90f, 15f)) }
-    val ballRadius = 45f
-    val isAnimationRunning = remember { mutableStateOf(true) }
 
     Column(modifier = Modifier
         .fillMaxSize()) {
@@ -70,14 +66,14 @@ fun GameScreen() {
             .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Button(onClick = { isAnimationRunning.value = true }) {
+            Button(onClick = {  gameViewModel.setIsAnimationRunning(flag = true) }) {
                 Text("START")
             }
-            Button(onClick = { isAnimationRunning.value = false }) {
+            Button(onClick = { gameViewModel.setIsAnimationRunning(flag = false) }) {
                 Text("QUIT")
             }
             Spacer(modifier = Modifier.weight(1f))
-            Text(text = "Score: ${score.value}")
+            Text(text = "Score: ${gameViewModel.score}")
         }
         Box(modifier = Modifier
             .fillMaxSize()
@@ -86,20 +82,11 @@ fun GameScreen() {
                 detectDragGestures { change, dragAmount ->
                     // Update paddle
                     Log.d(TAG, "Change amount ${dragAmount.y}")
-                    deltaY.value = dragAmount.y
-                    touchXY.value = change.position
+                    gameViewModel.setDeltaY( dragAmount.y )
+                    gameViewModel.setTouchXY( change.position )
                 }
             }) {
-            GameCanvas(
-                rectXYL = rectXYL,
-                rectXYR = rectXYR,
-                touchXY = touchXY,
-                deltaY = deltaY,
-                ballXY = ballXY,
-                ballVelocity = ballVelocity,
-                ballRadius = ballRadius,
-                isAnimationRunning = isAnimationRunning
-            )
+            GameCanvas(gameViewModel)
         } // end BOX
     } // End Column
 
@@ -110,21 +97,24 @@ fun GameScreen() {
 fun GamePreview() {
     PongTheme {
         //Greeting("Android")
-        GameScreen()
+        val gameViewModel: GameViewModel = viewModel()
+        GameScreen(gameViewModel = gameViewModel)
     }
 }
 
 @Composable
-fun GameCanvas(
-    rectXYL: MutableState<Offset>,
-    rectXYR: MutableState<Offset>,
-    touchXY: MutableState<Offset>,
-    deltaY: MutableState<Float>,
-    ballXY: MutableState<Offset>,
-    ballVelocity: MutableState<Offset>,
-    ballRadius: Float,
-    isAnimationRunning: MutableState<Boolean>
-) {
+fun GameCanvas(gameViewModel: GameViewModel) {
+
+    val score = gameViewModel.score
+    val rectXYL = gameViewModel.rectXYL
+    val rectXYR = gameViewModel.rectXYR
+    val touchXY = gameViewModel.touchXY
+    val deltaY = gameViewModel.deltaY
+    val ballXY = gameViewModel.ballXY
+    val ballVelocity = gameViewModel.ballVelocity
+    val ballRadius = gameViewModel.ballRadius
+    val isAnimationRunning = gameViewModel.isAnimationRunning
+
     LaunchedEffect(Unit) {
         /*
         * Animate the ball. The ball is rendered on canvas as a circle.
@@ -136,7 +126,7 @@ fun GameCanvas(
             if (isAnimationRunning.value) {
                 withFrameNanos { frameTime ->
                     // Update ball position
-                    ballXY.value += ballVelocity.value
+                    gameViewModel.setBallXY(ballXY.value + ballVelocity.value)
                 } // end withFrameNanos
             } // end IF ANIMATING
             delay(100L)
@@ -167,31 +157,31 @@ fun GameCanvas(
         val paddleWidth = 0.03f * canvasWidth
         val paddleHeight = 0.45f * canvasHeight
 
-        rectXYL.value = Offset(0.01f*canvasWidth, rectXYL.value.y)
-        rectXYR.value = Offset((canvasWidth - 0.01f*canvasWidth - paddleWidth), rectXYR.value.y)
+        gameViewModel.setRectXYL( Offset(0.01f*canvasWidth, rectXYL.value.y) )
+        gameViewModel.setRectXYR( Offset((canvasWidth - 0.01f*canvasWidth - paddleWidth), rectXYR.value.y) )
 
         // Check if paddle touched, knowing paddle location and dimensions
         if (touchXY.value.x in (rectXYL.value.x..rectXYL.value.x+paddleWidth) &&
             touchXY.value.y in rectXYL.value.y..(rectXYL.value.y+paddleHeight)) {
             Log.d(TAG, "YOU TOUCHED ME!")
             val newY = (rectXYL.value.y + deltaY.value).coerceIn(0f, canvasHeight-paddleHeight)
-            rectXYL.value = Offset(rectXYL.value.x, newY)
-            deltaY.value = 0f // So paddle stops when drag is paused
+            gameViewModel.setRectXYL( Offset(rectXYL.value.x, newY) )
+            gameViewModel.setDeltaY(0f)
         } // end IF
         if (touchXY.value.x in (rectXYR.value.x..rectXYR.value.x+paddleWidth) &&
             touchXY.value.y in rectXYR.value.y..(rectXYR.value.y+paddleHeight)) {
             Log.d(TAG, "YOU TOUCHED ME!")
             val newY = (rectXYR.value.y + deltaY.value).coerceIn(0f, canvasHeight-paddleHeight)
-            rectXYR.value = Offset(rectXYR.value.x, newY)
-            deltaY.value = 0f // So paddle stops when drag is paused
+            gameViewModel.setRectXYR( Offset(rectXYR.value.x, newY) )
+            gameViewModel.setDeltaY(0f) // So paddle stops when drag is paused
         } // end IF
 
         // Handle collisions of ball with paddles, edges
         val ballBounds = Rect(
-            (ballXY.value.x - ballRadius),
-            (ballXY.value.y - ballRadius),
-            (ballXY.value.x + ballRadius),
-            (ballXY.value.y + ballRadius)
+            (ballXY.value.x - ballRadius.value),
+            (ballXY.value.y - ballRadius.value),
+            (ballXY.value.x + ballRadius.value),
+            (ballXY.value.y + ballRadius.value)
         )
         val paddleBoundsL = Rect(
             offset = rectXYL.value,
@@ -202,11 +192,11 @@ fun GameCanvas(
             size = Size(paddleWidth, paddleHeight)
         )
         if (ballBounds.overlaps(paddleBoundsL) || ballBounds.overlaps(paddleBoundsR)) {
-            ballVelocity.value = Offset(ballVelocity.value.x * -1f, ballVelocity.value.y)
+            gameViewModel.setBallVelocity( Offset(ballVelocity.value.x * -1f, ballVelocity.value.y) )
             Log.d(TAG, "BALL TOUCHED ME! Velocity: ${ballVelocity.value.x}")
         }
-        if (ballXY.value.y - ballRadius <= 0f || ballXY.value.y + ballRadius >= canvasHeight) {
-            ballVelocity.value = Offset(ballVelocity.value.x, ballVelocity.value.y * -1f)
+        if (ballXY.value.y - ballRadius.value <= 0f || ballXY.value.y + ballRadius.value >= canvasHeight) {
+            gameViewModel.setBallVelocity( Offset(ballVelocity.value.x, ballVelocity.value.y * -1f) )
         }
 
         // Check game over condition
@@ -223,7 +213,7 @@ fun GameCanvas(
         drawCircle(
             color = Color.Cyan,
             center = ballXY.value,
-            radius = ballRadius
+            radius = ballRadius.value
         )
     } // end CANVAS
 }
