@@ -12,30 +12,73 @@ import kotlinx.coroutines.launch
 
 class GameViewModel : ViewModel() {
     val TAG = "GAME VIEWMODEL"
-    private val _score = mutableStateOf(0f)
-    val score: State<Float> = _score
-    fun setScore(score: Float) {
+    private val reward = 10
+
+    /*
+    * Player's score.
+    * Updated upon collision of ball and paddle.
+    * Triggers recomposition of the text view
+    * for score.
+    * */
+    private val _score = mutableStateOf(0)
+    val score: State<Int> = _score
+    fun setScore(score: Int) {
         _score.value = score
     }
+    fun incrementScore(reward: Int) {
+        _score.value += reward
+    }
 
+    /*
+    * The top-left corner of the left paddle.
+    * Once canvas is composed into the view,
+    * the canvas dimensions are known
+    * and serve as the reference for paddle size
+    * and placement on canvas.
+    * Triggers recomposition of canvas.
+    * */
     private val _rectXYL = mutableStateOf(Offset(0f, 0f))
     val rectXYL: State<Offset> = _rectXYL
     fun setRectXYL(ui_XY: Offset) {
         _rectXYL.value = ui_XY
     }
 
+    /*
+    * The top-left corner of the right paddle.
+    * Triggers recomposition of the canvas.
+    * */
     private val _rectXYR = mutableStateOf(Offset(0f, 0f))
     val rectXYR: State<Offset> = _rectXYR
     fun setRectXYR(ui_XY: Offset) {
         _rectXYR.value = ui_XY
     }
 
+    /*
+    * Coordinates of the touch location
+    * on the box enclosing the canvas.
+    * These are updated from view with
+    * pointerInput() modifier method upon
+    * box enclosing canvas.
+    * Used to detect if player touches paddle.
+    * Triggers recomposition of canvas when
+    * the paddle's position is recalculated
+    * as a result of drag gesture.
+    * */
     private val _touchXY = mutableStateOf(Offset(0f, 0f))
     val touchXY: State<Offset> = _touchXY
     fun setTouchXY(ui_XY: Offset) {
         _touchXY.value = ui_XY
     }
 
+    /*
+    * The change amount from drag gesture.
+    * This is updated from view with with
+    * pointerInput() modifier method upon
+    * box enclosing canvas.
+    * Triggers recomposition of canvas when
+    * the paddle's position is recalculated
+    * as a result of drag gesture.
+    * */
     private val _deltaY = mutableStateOf(0f)
     val deltaY: State<Float> = _deltaY
     fun setDeltaY(ui_Y: Float) {
@@ -63,6 +106,15 @@ class GameViewModel : ViewModel() {
         _isAnimationRunning.value = flag
     }
 
+    /*
+    * ANIMATION CENTRAL!!!!
+    * This coroutine runs in the main UI thread
+    * and updates ball's position to a timer
+    * thus triggering canvas recomposition,
+    * effectively producing game loop.
+    * The event-handlers for collision, drag, etc.
+    * are executed in the game's canvas composable.
+    * */
     fun startAnimation() {
         _isAnimationRunning.value = true
         viewModelScope.launch {
@@ -81,6 +133,13 @@ class GameViewModel : ViewModel() {
         _ballXY.value += _ballVelocity.value
     }
 
+    /*
+    * Drag Paddle
+    * Invoked in the canvas composable.
+    * In each frame, the paddle is moved
+    * if warranted, i.e. paddle is touched
+    * and dragged.
+    * */
     fun dragPaddleL(paddleSize: Size, canvasSize: Size) {
         if (touchXY.value.x in (rectXYL.value.x..rectXYL.value.x+paddleSize.width) &&
             touchXY.value.y in (rectXYL.value.y..rectXYL.value.y+paddleSize.height)) {
@@ -101,6 +160,17 @@ class GameViewModel : ViewModel() {
         } // end IF
     }
 
+    /*
+    * Bounce Ball off Paddle
+    * Invoked in the canvas composable.
+    * In each frame, collision event is
+    * checked for, and if detected,
+    * ball's velocity is recalculated.
+    * The next frame will then use this
+    * new velocity.
+    * The flipBallHeading() method handles
+    * changes in ball's heading.
+    * */
     fun checkBallHitsPaddle(paddleSize: Size) {
         val ballBounds = Rect(
             (ballXY.value.x - ballRadius.value),
@@ -117,9 +187,11 @@ class GameViewModel : ViewModel() {
             size = paddleSize
         )
         if (ballBounds.overlaps(paddleBoundsL))  {
+            incrementScore(reward)
             flipBallHeading(Direction.RIGHT)
             Log.d(TAG, "BALL TOUCHED ME! Velocity: ${ballVelocity.value.x}")
         } else if (ballBounds.overlaps(paddleBoundsR)) {
+            incrementScore(reward)
             flipBallHeading(Direction.LEFT)
             Log.d(TAG, "BALL TOUCHED ME! Velocity: ${ballVelocity.value.x}")
         }
@@ -159,5 +231,12 @@ class GameViewModel : ViewModel() {
             edge = Edge.LEFT
             setIsAnimationRunning(false)
         }
+    }
+
+    fun resetGame() {
+        _score.value = 0
+        _rectXYL.value = Offset.Zero
+        _rectXYR.value = Offset.Zero
+        _isAnimationRunning.value = false
     }
 }

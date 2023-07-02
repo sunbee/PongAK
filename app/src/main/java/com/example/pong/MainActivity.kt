@@ -74,7 +74,7 @@ fun GameScreen(gameViewModel: GameViewModel) {
                 Text("QUIT")
             }
             Spacer(modifier = Modifier.weight(1f))
-            Text(text = "Score: ${gameViewModel.score}")
+            Text(text = "Score: ${gameViewModel.score.value}")
         }
         Box(modifier = Modifier
             .fillMaxSize()
