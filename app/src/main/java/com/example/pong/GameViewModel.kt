@@ -7,10 +7,14 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
-class GameViewModel : ViewModel() {
+class GameViewModel(private val myScoreDao: MyScoreDao) : ViewModel() {
     val TAG = "GAME VIEWMODEL"
     private val reward = 10
 
@@ -29,6 +33,59 @@ class GameViewModel : ViewModel() {
         _score.value += reward
     }
 
+    /*
+    * Max Score on Device
+    * The max score is persisted to local DB (Room).
+    * The max score is updated when game ends,
+    * comparing the game score with historic max.
+    * 1. DB -> UI
+    * The DAO C(R)UD function returns a Flow<Int>
+    * so that changes are observable in the UI.
+    * Refer to the method observeScoreChanges()
+    * which must be run once in the init {} routine.
+    * 2. UI -> DB
+    * The DB is updated with method updateMaxScore().
+    * 3. Coroutines
+    * Since DAO CRUD functions are not allowed to run
+    * on main UI thread, they must be run on
+    * Dispatchers.IO in viewModelScope. This can have
+    * undesirable side-effects due to asynchronicity
+    * between main thread and IO thread.
+    * */
+    private val _maxScore = mutableStateOf(0)
+    val maxScore: State<Int> = _maxScore
+    fun observeScoreChanges() {
+        viewModelScope.launch {
+            myScoreDao.getMaxScore().collect { newScore ->
+                _maxScore.value = newScore
+            }
+        }
+    }
+
+    init {
+        observeScoreChanges()
+    }
+
+    /*
+    * Persist new max score to DB
+    * The coroutine runs on IO thread so the score
+    * may change in main thread before the CR(U)D
+    * operation.
+    * Hence the checks are executed first and
+    * local copy made before launching the coroutine
+    * where DAO CR(U)D operation is executed.
+    * Once the coroutine is launched then race conditions
+    * may arise as main thread is trying to reset state.
+    * */
+    private fun updateMaxScore() {
+        Log.d(TAG, "Score ${score.value} Max Score ${maxScore.value}")
+        val newscore = score.value  // MITIGATE RACE CONDITION!!!!
+        if (score.value > maxScore.value) {
+            viewModelScope.launch(Dispatchers.IO) {
+                myScoreDao.insert(MyScore(1, newscore))
+            }
+        }
+    }
     /*
     * The top-left corner of the left paddle.
     * Once canvas is composed into the view,
@@ -127,6 +184,7 @@ class GameViewModel : ViewModel() {
 
     fun stopAnimation() {
         _isAnimationRunning.value = false
+        updateMaxScore()
         resetGame()
     }
 
@@ -242,3 +300,4 @@ class GameViewModel : ViewModel() {
         _isAnimationRunning.value = false
     }
 }
+
