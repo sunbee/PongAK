@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -188,4 +189,22 @@ fun GameCanvas(gameViewModel: GameViewModel) {
             radius = ballRadius.value
         )
     } // end CANVAS
-}
+
+    if (gameViewModel.isGameOver.value) {
+        AlertDialog(
+            onDismissRequest = { gameViewModel.resetGame() },
+            title = { Text("Game Over") },
+            text = {
+                Column {
+                    Text("Score: ${gameViewModel.score.value}")
+                    Text("Max Score: ${gameViewModel.maxScore.value}")
+                }
+            },
+            confirmButton = {
+                Button(onClick = { gameViewModel.resetGame() }) {
+                    Text("RESET")
+                }
+            }
+        )
+    }
+} // end fun GameCanvas

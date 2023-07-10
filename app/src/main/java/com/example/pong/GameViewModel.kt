@@ -17,7 +17,7 @@ import kotlinx.coroutines.runBlocking
 class GameViewModel(private val myScoreDao: MyScoreDao) : ViewModel() {
     val TAG = "GAME VIEWMODEL"
     private val reward = 10
-    private val gravityAcceleration = Offset(0.0f, 1.5f)
+
 
     /*
     * Player's score.
@@ -34,6 +34,23 @@ class GameViewModel(private val myScoreDao: MyScoreDao) : ViewModel() {
         _score.value += reward
     }
 
+    /*
+    * SUB-SYSTEM: Persist max score
+    * Performs CRUD operation on Room DB.
+    * Room DB has the following components:
+    * @Entity is the annotated Kotlin class for max score
+    * @Dao is the interface for CRUD operations to use in View Model with wrappers
+    * @Database is the database
+    * After implementing all three, the MainActivity has creation of the following:
+    * 1. DB instance
+    * 2. View Model instance using Object Factory
+    * In the View Model, we have the following:
+    * 1. observeScoreChanges() flow changes from DB -> View Model with observer pattern
+    * 2. init {} invoke observeScoreChanges() to start observation
+    * 3. updateMaxScore() coroutine wrapper around @Dao to (C)RUD max score
+    * */
+    private val _maxScore = mutableStateOf(0)
+    val maxScore: State<Int> = _maxScore
     /*
     * Max Score on Device
     * The max score is persisted to local DB (Room).
@@ -53,8 +70,6 @@ class GameViewModel(private val myScoreDao: MyScoreDao) : ViewModel() {
     * undesirable side-effects due to asynchronicity
     * between main thread and IO thread.
     * */
-    private val _maxScore = mutableStateOf(0)
-    val maxScore: State<Int> = _maxScore
     fun observeScoreChanges() {
         viewModelScope.launch {
             myScoreDao.getMaxScore().collect { newScore ->
@@ -64,21 +79,21 @@ class GameViewModel(private val myScoreDao: MyScoreDao) : ViewModel() {
     }
 
     init {
-        observeScoreChanges()
+        observeScoreChanges()  // Start observing
     }
 
-    /*
-    * Persist new max score to DB
-    * The coroutine runs on IO thread so the score
-    * may change in main thread before the CR(U)D
-    * operation.
-    * Hence the checks are executed first and
-    * local copy made before launching the coroutine
-    * where DAO CR(U)D operation is executed.
-    * Once the coroutine is launched then race conditions
-    * may arise as main thread is trying to reset state.
-    * */
     private fun updateMaxScore() {
+        /*
+        * Persist new max score to DB
+        * The coroutine runs on IO thread so the score
+        * may change in main thread before the CR(U)D
+        * operation.
+        * Hence the checks are executed first and
+        * local copy made before launching the coroutine
+        * where DAO CR(U)D operation is executed.
+        * Once the coroutine is launched then race conditions
+        * may arise as main thread is trying to reset state.
+        * */
         Log.d(TAG, "Score ${score.value} Max Score ${maxScore.value}")
         val newscore = score.value  // MITIGATE RACE CONDITION!!!!
         if (score.value > maxScore.value) {
@@ -87,6 +102,24 @@ class GameViewModel(private val myScoreDao: MyScoreDao) : ViewModel() {
             }
         }
     }
+
+    /*
+    * EVENT-HANDLER: Paddle is dragged
+    * EVENT: Touch event
+    *   The modifier pointerInput() is applied to Box
+    *   containing Canvas to capture drag gesture.
+    * CALLBACK:
+    *   dragPaddleL()
+    *   dragPaddleR()
+    * are invoked in Game Loop.
+    * DETAILS:
+    *   _rectXYL is paddle L's top-left corner
+    *   _rectXYR is paddle R's top-left corner
+    *   _touchXY is XY coordinates of touch
+    *   _deltaY is movement of paddle
+    * */
+    private val _rectXYL = mutableStateOf(Offset(0f, 0f))
+    val rectXYL: State<Offset> = _rectXYL
     /*
     * The top-left corner of the left paddle.
     * Once canvas is composed into the view,
@@ -95,39 +128,39 @@ class GameViewModel(private val myScoreDao: MyScoreDao) : ViewModel() {
     * and placement on canvas.
     * Triggers recomposition of canvas.
     * */
-    private val _rectXYL = mutableStateOf(Offset(0f, 0f))
-    val rectXYL: State<Offset> = _rectXYL
     fun setRectXYL(ui_XY: Offset) {
         _rectXYL.value = ui_XY
     }
 
+    private val _rectXYR = mutableStateOf(Offset(0f, 0f))
+    val rectXYR: State<Offset> = _rectXYR
     /*
     * The top-left corner of the right paddle.
     * Triggers recomposition of the canvas.
     * */
-    private val _rectXYR = mutableStateOf(Offset(0f, 0f))
-    val rectXYR: State<Offset> = _rectXYR
     fun setRectXYR(ui_XY: Offset) {
         _rectXYR.value = ui_XY
     }
 
-    /*
-    * Coordinates of the touch location
-    * on the box enclosing the canvas.
-    * These are updated from view with
-    * pointerInput() modifier method upon
-    * box enclosing canvas.
-    * Used to detect if player touches paddle.
-    * Triggers recomposition of canvas when
-    * the paddle's position is recalculated
-    * as a result of drag gesture.
-    * */
     private val _touchXY = mutableStateOf(Offset(0f, 0f))
     val touchXY: State<Offset> = _touchXY
+    /*
+     * Coordinates of the touch location
+     * on the box enclosing the canvas.
+     * These are updated from view with
+     * pointerInput() modifier method upon
+     * box enclosing canvas.
+     * Used to detect if player touches paddle.
+     * Triggers recomposition of canvas when
+     * the paddle's position is recalculated
+     * as a result of drag gesture.
+     * */
     fun setTouchXY(ui_XY: Offset) {
         _touchXY.value = ui_XY
     }
 
+    private val _deltaY = mutableStateOf(0f)
+    val deltaY: State<Float> = _deltaY
     /*
     * The change amount from drag gesture.
     * This is updated from view with with
@@ -137,11 +170,55 @@ class GameViewModel(private val myScoreDao: MyScoreDao) : ViewModel() {
     * the paddle's position is recalculated
     * as a result of drag gesture.
     * */
-    private val _deltaY = mutableStateOf(0f)
-    val deltaY: State<Float> = _deltaY
     fun setDeltaY(ui_Y: Float) {
         _deltaY.value = ui_Y
     }
+
+    fun dragPaddleL(paddleSize: Size, canvasSize: Size) {
+        /*
+        * Drag Paddle
+        * Invoked in the canvas composable.
+        * In each frame, the paddle is moved
+        * if warranted, i.e. paddle is touched
+        * and dragged.
+        * */
+        if (touchXY.value.x in (rectXYL.value.x..rectXYL.value.x+paddleSize.width) &&
+            touchXY.value.y in (rectXYL.value.y..rectXYL.value.y+paddleSize.height)) {
+            Log.d(TAG, "LEFT PADDLE TOUCHED!")
+            val newY = (rectXYL.value.y + deltaY.value).coerceIn(0f, canvasSize.height-paddleSize.height)
+            setRectXYL( Offset(rectXYL.value.x, newY) )
+            setDeltaY(0f)
+        } // end IF
+    }
+
+    fun dragPaddleR(paddleSize: Size, canvasSize: Size) {
+        if (touchXY.value.x in (rectXYR.value.x..rectXYR.value.x+paddleSize.width) &&
+            touchXY.value.y in (rectXYR.value.y..rectXYR.value.y+paddleSize.height)) {
+            Log.d(TAG, "RIGHT PADDLE TOUCHED!")
+            val newY = (rectXYR.value.y + deltaY.value).coerceIn(0f, canvasSize.height-paddleSize.height)
+            setRectXYR( Offset(rectXYR.value.x, newY) )
+            setDeltaY(0f) // So paddle stops when drag is paused
+        } // end IF
+    }
+
+    /*
+    * EVENT-HANDLER Ball is animated
+    * EVENT: Timer event
+    *   Timer updates ball's XY coordinates in an async forever-loop.
+    *   When _isAnimationRunning is false, the forever-loop exits. While
+    *   _isAnimationRunning is true, the ball's animation drives the game
+    *   loop by forcing the canvas to recompose with each update, thus
+    *   advancing the game frame-by-frame.
+    * CALLBACK:
+    *   startAnimation() has the forever-loop to update ball's position
+    *   stopAnimation() is the exit procedure
+    *   updateBallPosition() increments the ball's XY coordinates
+    * DETAILS:
+    *   _ballXY is the ball's XY coordinates
+    *   _ballVelocity is the ball's velocity
+    *   _ballRadius is the ball's radius
+    *   _isAnimationRunning is the flag
+    * */
 
     private val _ballXY = mutableStateOf(Offset(150f, 50f))
     val ballXY: State<Offset> = _ballXY
@@ -164,15 +241,23 @@ class GameViewModel(private val myScoreDao: MyScoreDao) : ViewModel() {
         _isAnimationRunning.value = flag
     }
 
-    /*
-    * ANIMATION CENTRAL!!!!
-    * This coroutine runs in the main UI thread
-    * and updates ball's position to a timer
-    * thus triggering canvas recomposition,
-    * effectively producing game loop.
-    * The event-handlers for collision, drag, etc.
-    * are executed in the game's canvas composable.
-    * */
+    private fun updateBallPosition() {
+        /*
+        * ANIMATION CENTRAL!!!!
+        * This coroutine runs in the main UI thread
+        * and updates ball's position to a timer
+        * thus triggering canvas recomposition,
+        * effectively producing game loop.
+        * The event-handlers for collision, drag, etc.
+        * are executed in the game's canvas composable.
+        * */
+        if (isGravityEnabled.value) {
+            // Apply gravity effect
+            _ballVelocity.value += gravityAcceleration
+        }
+        _ballXY.value += _ballVelocity.value
+    }
+
     fun startAnimation() {
         _isAnimationRunning.value = true
         viewModelScope.launch {
@@ -185,58 +270,33 @@ class GameViewModel(private val myScoreDao: MyScoreDao) : ViewModel() {
 
     fun stopAnimation() {
         _isAnimationRunning.value = false
-        updateMaxScore()
+        updateMaxScore() // Coroutine!
         resetGame()
     }
 
-    private fun updateBallPosition() {
-        if (isGravityEnabled.value) {
-            // Apply gravity effect
-            _ballVelocity.value += gravityAcceleration
-        }
-
-        _ballXY.value += _ballVelocity.value
-    }
-
     /*
-    * Drag Paddle
-    * Invoked in the canvas composable.
-    * In each frame, the paddle is moved
-    * if warranted, i.e. paddle is touched
-    * and dragged.
+    * EVENT-HANDLER: Ball touches paddle
+    * EVENT:
+    *   Checks in game loop if ball hit paddle and updates velocity
+    *   for bounce.
+    * CALLBACK:
+    *   checkBallHitsPaddle() implements collision check
+    *   flipBallHeading() updates ball velocity
+    * DETAILS:
     * */
-    fun dragPaddleL(paddleSize: Size, canvasSize: Size) {
-        if (touchXY.value.x in (rectXYL.value.x..rectXYL.value.x+paddleSize.width) &&
-            touchXY.value.y in (rectXYL.value.y..rectXYL.value.y+paddleSize.height)) {
-            Log.d(TAG, "LEFT PADDLE TOUCHED!")
-            val newY = (rectXYL.value.y + deltaY.value).coerceIn(0f, canvasSize.height-paddleSize.height)
-            setRectXYL( Offset(rectXYL.value.x, newY) )
-            setDeltaY(0f)
-        } // end IF
-    }
 
-    fun dragPaddleR(paddleSize: Size, canvasSize: Size) {
-        if (touchXY.value.x in (rectXYR.value.x..rectXYR.value.x+paddleSize.width) &&
-            touchXY.value.y in (rectXYR.value.y..rectXYR.value.y+paddleSize.height)) {
-            Log.d(TAG, "RIGHT PADDLE TOUCHED!")
-            val newY = (rectXYR.value.y + deltaY.value).coerceIn(0f, canvasSize.height-paddleSize.height)
-            setRectXYR( Offset(rectXYR.value.x, newY) )
-            setDeltaY(0f) // So paddle stops when drag is paused
-        } // end IF
-    }
-
-    /*
-    * Bounce Ball off Paddle
-    * Invoked in the canvas composable.
-    * In each frame, collision event is
-    * checked for, and if detected,
-    * ball's velocity is recalculated.
-    * The next frame will then use this
-    * new velocity.
-    * The flipBallHeading() method handles
-    * changes in ball's heading.
-    * */
     fun checkBallHitsPaddle(paddleSize: Size) {
+        /*
+        * Bounce Ball off Paddle
+        * Invoked in the canvas composable.
+        * In each frame, collision event is
+        * checked for, and if detected,
+        * ball's velocity is recalculated.
+        * The next frame will then use this
+        * new velocity.
+        * The flipBallHeading() method handles
+        * changes in ball's heading.
+        * */
         val ballBounds = Rect(
             (ballXY.value.x - ballRadius.value),
             (ballXY.value.y - ballRadius.value),
@@ -275,12 +335,28 @@ class GameViewModel(private val myScoreDao: MyScoreDao) : ViewModel() {
         }
     }
 
+    /*
+    * EVENT-HANDLER: Ball reaches canvas edge
+    * EVENT:
+    *   Checks in game loop if ball has reached canvas edge
+    *   and rebounds the ball or ends the game according to
+    *   the edge reached.
+    * CALLBACK:
+    *   handleBallHitsEdge() implements check
+    *   flipBallHeading()
+    *   handleGameOver()
+    *
+    * DETAILS:
+    *   _isGameOver flags end of game
+    * */
+    private val _isGameOver = mutableStateOf(false)
+    val isGameOver: State<Boolean> = _isGameOver
+
     enum class Edge {
         LEFT, RIGHT, TOP, BOTTOM
     }
 
     fun handleBallHitsEdge(canvasSize: Size) {
-
         val edge: Edge
 
         if (ballXY.value.y - ballRadius.value <= 0f) {
@@ -288,30 +364,52 @@ class GameViewModel(private val myScoreDao: MyScoreDao) : ViewModel() {
             flipBallHeading(Direction.DOWN)
         } else if (ballXY.value.x + ballRadius.value >= canvasSize.width) {
             edge = Edge.RIGHT
-            setIsAnimationRunning(false)
+            handleGameOver()
         } else if (ballXY.value.y + ballRadius.value >= canvasSize.height) {
             edge = Edge.BOTTOM
             flipBallHeading(Direction.UP)
         } else if (ballXY.value.x - ballRadius.value <= 0f) {
             edge = Edge.LEFT
-            setIsAnimationRunning(false)
+            handleGameOver()
         }
     }
 
-    private val _isGravityEnabled = mutableStateOf(true)
-    val isGravityEnabled: State<Boolean> = _isGravityEnabled
-    fun toggleGravity() {
-        _isGravityEnabled.value = !_isGravityEnabled.value
+    fun handleGameOver() {
+        /*
+        * Ends the game by setting _isAnimationRunning to false
+        * causing forever-loop that updates ball's position to exit.
+        * Launches pop-up with "Game over!" message.
+        * Persists the max score by calling updateMaxScore().
+        * */
+        _isAnimationRunning.value = false   // End game
+        _isGameOver.value = true            // Show pop-up message
+        updateMaxScore()                    // Persist max score
     }
-
-
 
     fun resetGame() {
         _score.value = 0
         _rectXYL.value = Offset.Zero
         _rectXYR.value = Offset.Zero
         _ballXY.value = Offset(150f, 50f)
-        _isAnimationRunning.value = false
+        _isGameOver.value = false
+    }
+
+    /*
+    * EVENT-HANDLER: Activate Gravity
+    * EVENT: Press button to de/activate gravity
+    * CALLBACK:
+    *   toggleGravity()
+    * DETAILS:
+    *   _isGravityEnabled
+    *   gravityAcceleration
+    * */
+
+    private val gravityAcceleration = Offset(0.0f, 1.5f)
+
+    private val _isGravityEnabled = mutableStateOf(true)
+    val isGravityEnabled: State<Boolean> = _isGravityEnabled
+    fun toggleGravity() {
+        _isGravityEnabled.value = !_isGravityEnabled.value
     }
 }
 
