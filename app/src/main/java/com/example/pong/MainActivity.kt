@@ -88,6 +88,12 @@ fun GameScreen(gameViewModel: GameViewModel) {
             Button(onClick = { gameViewModel.stopAnimation() }) {
                 Text("QUIT")
             }
+            Button(
+                onClick = { gameViewModel.toggleGravity() }
+            ) {
+                Text(if (gameViewModel.isGravityEnabled.value) "Gravity ON" else "Gravity OFF")
+            }
+
             Spacer(modifier = Modifier.weight(1f))
             Text(text = "Score: ${gameViewModel.score.value}\nMaxScore: ${gameViewModel.maxScore.value}")
         }

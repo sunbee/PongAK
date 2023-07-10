@@ -17,6 +17,7 @@ import kotlinx.coroutines.runBlocking
 class GameViewModel(private val myScoreDao: MyScoreDao) : ViewModel() {
     val TAG = "GAME VIEWMODEL"
     private val reward = 10
+    private val gravityAcceleration = Offset(0.0f, 1.5f)
 
     /*
     * Player's score.
@@ -189,6 +190,11 @@ class GameViewModel(private val myScoreDao: MyScoreDao) : ViewModel() {
     }
 
     private fun updateBallPosition() {
+        if (isGravityEnabled.value) {
+            // Apply gravity effect
+            _ballVelocity.value += gravityAcceleration
+        }
+
         _ballXY.value += _ballVelocity.value
     }
 
@@ -291,6 +297,14 @@ class GameViewModel(private val myScoreDao: MyScoreDao) : ViewModel() {
             setIsAnimationRunning(false)
         }
     }
+
+    private val _isGravityEnabled = mutableStateOf(true)
+    val isGravityEnabled: State<Boolean> = _isGravityEnabled
+    fun toggleGravity() {
+        _isGravityEnabled.value = !_isGravityEnabled.value
+    }
+
+
 
     fun resetGame() {
         _score.value = 0
