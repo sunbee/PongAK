@@ -104,15 +104,17 @@ class GameViewModel(private val myScoreDao: MyScoreDao) : ViewModel() {
     }
 
     /*
-    * EVENT-HANDLER: Paddle is dragged
-    * EVENT: Touch event
+    * EVENT-HANDLER:
+    * WHEN paddle is dragged THEN move paddle
+    *
+    * WHEN paddle is dragged .. (touch event)
     *   The modifier pointerInput() is applied to Box
     *   containing Canvas to capture drag gesture.
-    * CALLBACK:
+    * THEN move paddle.. (callback)
     *   dragPaddleL()
     *   dragPaddleR()
-    * are invoked in Game Loop.
-    * DETAILS:
+    * are invoked in game loop of Canvas composable.
+    * Actors:
     *   _rectXYL is paddle L's top-left corner
     *   _rectXYR is paddle R's top-left corner
     *   _touchXY is XY coordinates of touch
@@ -202,18 +204,20 @@ class GameViewModel(private val myScoreDao: MyScoreDao) : ViewModel() {
     }
 
     /*
-    * EVENT-HANDLER Ball is animated
-    * EVENT: Timer event
+    * EVENT-HANDLER
+    * WHEN timer fires THEN advance ball to next position
+    *
+    * WHEN timer fires.. (clock's timer)
     *   Timer updates ball's XY coordinates in an async forever-loop.
     *   When _isAnimationRunning is false, the forever-loop exits. While
     *   _isAnimationRunning is true, the ball's animation drives the game
     *   loop by forcing the canvas to recompose with each update, thus
     *   advancing the game frame-by-frame.
-    * CALLBACK:
+    * THEN advance ball to next position.. (callback)
     *   startAnimation() has the forever-loop to update ball's position
     *   stopAnimation() is the exit procedure
     *   updateBallPosition() increments the ball's XY coordinates
-    * DETAILS:
+    * Actors:
     *   _ballXY is the ball's XY coordinates
     *   _ballVelocity is the ball's velocity
     *   _ballRadius is the ball's radius
@@ -259,6 +263,9 @@ class GameViewModel(private val myScoreDao: MyScoreDao) : ViewModel() {
     }
 
     fun startAnimation() {
+        /*
+        * WHEN Start button is clicked THEN ..
+        * */
         _isAnimationRunning.value = true
         viewModelScope.launch {
             while (_isAnimationRunning.value) {
@@ -269,20 +276,25 @@ class GameViewModel(private val myScoreDao: MyScoreDao) : ViewModel() {
     }
 
     fun stopAnimation() {
+        /*
+        * WHEN Quit button is clicked THEN ..
+        * */
         _isAnimationRunning.value = false
         updateMaxScore() // Coroutine!
         resetGame()
     }
 
     /*
-    * EVENT-HANDLER: Ball touches paddle
-    * EVENT:
+    * EVENT-HANDLER:
+    * WHEN ball touches paddle THEN reset ball's heading
+    *
+    * WHEN ball touches paddle.. (sprite collision)
     *   Checks in game loop if ball hit paddle and updates velocity
     *   for bounce.
-    * CALLBACK:
-    *   checkBallHitsPaddle() implements collision check
-    *   flipBallHeading() updates ball velocity
-    * DETAILS:
+    * THEN reset ball's heading.. (callback)
+    *   checkBallHitsPaddle() checks for collision
+    *   flipBallHeading() updates ball heading
+    * Actors:
     * */
 
     fun checkBallHitsPaddle(paddleSize: Size) {
@@ -336,17 +348,19 @@ class GameViewModel(private val myScoreDao: MyScoreDao) : ViewModel() {
     }
 
     /*
-    * EVENT-HANDLER: Ball reaches canvas edge
-    * EVENT:
+    * EVENT-HANDLER:
+    * WHEN ball reaches canvas edge
+    *
+    * THEN rebound or end game depending on the edge
+    * WHEN ball reaches canvas edge.. (edge reached event)
     *   Checks in game loop if ball has reached canvas edge
     *   and rebounds the ball or ends the game according to
     *   the edge reached.
-    * CALLBACK:
+    * THEN rebound or end game depending on the edge.. (callback)
     *   handleBallHitsEdge() implements check
     *   flipBallHeading()
     *   handleGameOver()
-    *
-    * DETAILS:
+    * Actors:
     *   _isGameOver flags end of game
     * */
     private val _isGameOver = mutableStateOf(false)
@@ -395,11 +409,14 @@ class GameViewModel(private val myScoreDao: MyScoreDao) : ViewModel() {
     }
 
     /*
-    * EVENT-HANDLER: Activate Gravity
-    * EVENT: Press button to de/activate gravity
-    * CALLBACK:
+    * EVENT-HANDLER:
+    * WHEN button clicked THEN turn de/activate gravity
+    *
+    * WHEN button clicked.. (click event)
+    *   Press button to de/activate gravity
+    * THEN turn de/activate gravity.. (callback)
     *   toggleGravity()
-    * DETAILS:
+    * Actors:
     *   _isGravityEnabled
     *   gravityAcceleration
     * */
