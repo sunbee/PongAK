@@ -21,7 +21,7 @@ class GameViewModel(context: Context, private val myScoreDao: MyScoreDao) : View
     private val reward = 10
 
     /*
-    * SUB-SYSTEM: MUSIC
+    * SUB-SYSTEM: SOUND EFFECTS
     * Play sounds on different occasions.
     * */
     private val buzzer: MediaPlayer = MediaPlayer.create(context, R.raw.buzzer)
