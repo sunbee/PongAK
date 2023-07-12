@@ -49,7 +49,7 @@ class MainActivity : ComponentActivity() {
         factoryProducer = {
             object : ViewModelProvider.Factory {
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    return GameViewModel(scoreDB.MyScoreDao()) as T
+                    return GameViewModel(this@MainActivity, scoreDB.MyScoreDao()) as T
                 }
             }
         }

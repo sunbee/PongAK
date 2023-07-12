@@ -1,4 +1,6 @@
 package com.example.pong
+import android.content.Context
+import android.media.MediaPlayer
 import android.util.Log
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
@@ -14,10 +16,29 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
-class GameViewModel(private val myScoreDao: MyScoreDao) : ViewModel() {
+class GameViewModel(context: Context, private val myScoreDao: MyScoreDao) : ViewModel() {
     val TAG = "GAME VIEWMODEL"
     private val reward = 10
 
+    /*
+    * SUB-SYSTEM: MUSIC
+    * Play sounds on different occasions.
+    * */
+    private val buzzer: MediaPlayer = MediaPlayer.create(context, R.raw.buzzer)
+    private val noink: MediaPlayer = MediaPlayer.create(context, R.raw.noink)
+    private val note: MediaPlayer = MediaPlayer.create(context, R.raw.note)
+
+    enum class SOUND {
+        BUZZER, NOINK, NOTE
+    }
+
+    private fun playSound(sound: SOUND) {
+        when(sound) {
+            SOUND.BUZZER -> buzzer.start()
+            SOUND.NOINK -> noink.start()
+            SOUND.NOTE -> note.start()
+        }
+    }
 
     /*
     * Player's score.
@@ -326,10 +347,12 @@ class GameViewModel(private val myScoreDao: MyScoreDao) : ViewModel() {
         if (ballBounds.overlaps(paddleBoundsL))  {
             incrementScore(reward)
             flipBallHeading(Direction.RIGHT)
+            playSound(SOUND.NOINK)
             Log.d(TAG, "BALL TOUCHED ME! Velocity: ${ballVelocity.value.x}")
         } else if (ballBounds.overlaps(paddleBoundsR)) {
             incrementScore(reward)
             flipBallHeading(Direction.LEFT)
+            playSound(SOUND.NOINK)
             Log.d(TAG, "BALL TOUCHED ME! Velocity: ${ballVelocity.value.x}")
         }
     }
@@ -376,15 +399,19 @@ class GameViewModel(private val myScoreDao: MyScoreDao) : ViewModel() {
         if (ballXY.value.y - ballRadius.value <= 0f) {
             edge = Edge.TOP
             flipBallHeading(Direction.DOWN)
+            playSound(SOUND.NOTE)
         } else if (ballXY.value.x + ballRadius.value >= canvasSize.width) {
             edge = Edge.RIGHT
             handleGameOver()
+            playSound(SOUND.BUZZER)
         } else if (ballXY.value.y + ballRadius.value >= canvasSize.height) {
             edge = Edge.BOTTOM
             flipBallHeading(Direction.UP)
+            playSound(SOUND.NOTE)
         } else if (ballXY.value.x - ballRadius.value <= 0f) {
             edge = Edge.LEFT
             handleGameOver()
+            playSound(SOUND.BUZZER)
         }
     }
 
